@@ -36,7 +36,8 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           TOKEN_SECRET: ${{ secrets.TOKEN_SECRET }}
         run: |
-          python ./test_action.py ~FgPOFSnmkW8
+          # python ./test_action.py ~FgPOFSnmkW8
+          python ./backup_json.py ~FgPOFSnmkW8
           
       - name: Commit & push
         run: |

@@ -96,21 +96,21 @@ def find_all_content(ff, _id, content_list=[], append_list=[], count=40):
 
 if __name__ == '__main__':
     # 0. 参数校验
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 2:
         print("参数个数有误！")
         exit(-1)
 
-    api_key = sys.argv[1]
-    api_secret = sys.argv[2]
+    user_id = sys.argv[1]
 
-    token = sys.argv[3]
-    token_secret = sys.argv[4]
+    api_key = os.environ['API_KEY']
+    api_secret = os.environ['API_SECRET']
 
-    user_id = sys.argv[5]
+    token = os.environ['TOKEN']
+    token_secret = os.environ['TOKEN_SECRET']
 
     # 0.1 测试
-    test_token = sys.argv[6]
-    print(test_token)
+    # test_token = sys.argv[6]
+    # print(test_token)
 
     # 0.2 构造对象
     fu = FileUtil('fanfou.json')

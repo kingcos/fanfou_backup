@@ -19,12 +19,19 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8.9
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Setup Python requirements
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          python -m pip install --upgrade pip
+          pip3 install - requirements.txt
+          
+      - name: Backup JSON & images
+        env:
+          TEST_TOKEN: ${{ secrets.TEST_TOKEN }}
+        run: |
+          echo "$TEST_TOKEN"
+          # python ./backup_json.py 1 2 3 4 5

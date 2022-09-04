@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import oauth2
 import datetime
 import requests
@@ -91,6 +92,7 @@ def find_all_content(ff, _id, content_list=[], append_list=[], count=40):
     max_id = append_list[0]['id'] if len(append_list) > 0 else ''
     max_id_to = content_list[-1]['id'] if len(content_list) > 0 else ''
 
+    time.sleep(5)
     ts = ff.request_user_timeline(count=count, max_id=max_id, _id=_id)
 
     content_list_ids = list(map(lambda x: x['id'], content_list))

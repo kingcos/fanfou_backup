@@ -37,3 +37,11 @@ jobs:
           TOKEN_SECRET: ${{ secrets.TOKEN_SECRET }}
         run: |
           python ./test_action.py ~FgPOFSnmkW8
+          
+      - name: Commit & push
+        run: |
+          git config --global user.name 'kingcos'
+          git config --global user.email '2821836721v@gmail.com'
+          git add -A
+          git commit -m '[Actions]Update'
+          git push

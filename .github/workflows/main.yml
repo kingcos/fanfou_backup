@@ -35,6 +35,5 @@ jobs:
           API_SECRET: ${{ secrets.API_SECRET }}
           TOKEN: ${{ secrets.TOKEN }}
           TOKEN_SECRET: ${{ secrets.TOKEN_SECRET }}
-          TEST_TOKEN: ${{ secrets.TEST_TOKEN }}
         run: |
-          python ./test_action.py "$API_KEY" "$API_SECRET" "$TOKEN" "$TOKEN_SECRET" ~FgPOFSnmkW8 "$TEST_TOKEN"
+          python ./test_action.py ~FgPOFSnmkW8

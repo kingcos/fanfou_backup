@@ -112,19 +112,19 @@ if __name__ == '__main__':
     test_token = sys.argv[6]
     print(test_token)
 
-    # # 0.2 构造对象
-    # fu = FileUtil('fanfou.json')
-    # ff = FanFou(api_key, api_secret, token, token_secret)
-    #
-    # # 1. 读取原文件内容
-    # content_list = fu.get_json_list()
-    # print(content_list)
-    #
-    # # 2. 添加完整内容
-    # content_list = find_all_content(ff, _id=user_id, content_list=content_list, count=2)
-    # print(content_list)
-    #
-    # # 3. 写回文件，再读取
-    # fu.write_list_to_file(content_list)
-    # content_list = fu.get_json_list()
-    # print(content_list)
+    # 0.2 构造对象
+    fu = FileUtil('fanfou.json')
+    ff = FanFou(api_key, api_secret, token, token_secret)
+
+    # 1. 读取原文件内容
+    content_list = fu.get_json_list()
+    print(content_list)
+
+    # 2. 添加完整内容
+    content_list = find_all_content(ff, _id=user_id, content_list=content_list, count=2)
+    print(content_list)
+
+    # 3. 写回文件，再读取
+    fu.write_list_to_file(content_list)
+    content_list = fu.get_json_list()
+    print(content_list)

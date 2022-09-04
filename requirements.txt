@@ -1,0 +1,8 @@
+certifi==2022.6.15
+charset-normalizer==2.1.1
+httplib2==0.20.4
+idna==3.3
+oauth2==1.9.0.post1
+pyparsing==3.0.9
+requests==2.28.1
+urllib3==1.26.12

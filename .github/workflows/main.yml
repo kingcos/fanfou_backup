@@ -31,7 +31,10 @@ jobs:
           
       - name: Backup JSON & images
         env:
+          API_KEY: ${{ secrets.API_KEY }}
+          API_SECRET: ${{ secrets.API_SECRET }}
+          TOKEN: ${{ secrets.TOKEN }}
+          TOKEN_SECRET: ${{ secrets.TOKEN_SECRET }}
           TEST_TOKEN: ${{ secrets.TEST_TOKEN }}
         run: |
-          echo "$TEST_TOKEN"
-          # python ./backup_json.py 1 2 3 4 5
+          python ./test_action.py "$API_KEY" "$API_SECRET" "$TOKEN" "$TOKEN_SECRET" ~FgPOFSnmkW8 "$TEST_TOKEN"

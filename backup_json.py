@@ -155,5 +155,6 @@ if __name__ == '__main__':
 
     # 3. 写回文件，再读取
     fu.write_list_to_file(content_list)
-    # content_list = fu.get_json_list()
+    content_list = fu.get_json_list()
+    print('已写入总计 ' + str(len(content_list)) + ' 条内容')
     # print(content_list)

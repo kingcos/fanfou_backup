@@ -44,5 +44,5 @@ jobs:
           git config --global user.name 'kingcos'
           git config --global user.email '2821836721v@gmail.com'
           git add -A
-          git diff --exit-code || git commit -m '[Actions]Update'
+          git diff --cached --exit-code || git commit -m '[Actions]Update'
           git push

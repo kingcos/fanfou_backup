@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import time
@@ -99,7 +100,13 @@ def find_all_content(ff, _id, content_list=[], append_list=[], count=40):
     append_list_ids = list(map(lambda x: x['id'], append_list))  # 1, 2, 3，时间正序（旧 -> 新）
 
     for t in ts:
+        # 删除 user 字段（重复率太高）
         del t['user']
+        # 处理【审核中】
+        verified_text = ' 【审核中】'
+        if t['text'].endswith(verified_text):
+            t['text'] = re.sub(re.escape(verified_text) + '$', '', t['text'])  # t['text'].strip(verified_text)
+
         if len(max_id_to) and t['id'] == max_id_to:
             # 有目标 max_id 且命中到 max_id_to
             content_list.extend(append_list)

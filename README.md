@@ -13,9 +13,9 @@ A GitHub Actions workflow for backup of fanfou.com.
 
 ![Secrets settings](secrets_settings.png)
 
-3. 设置完成后，您可手动触发 Action 或等待每日定时触发（默认 10:00 UTC）。
+3. 设置完成后，您可手动触发 Action 或等待每日定时触发（默认每日 10:00 UTC）。
 
-> 注意：首次备份可能会花费较长时间。
+> 注意：首次备份较多时可能会花费较长时间。
 
 ## Q&A
 
@@ -27,9 +27,9 @@ A GitHub Actions workflow for backup of fanfou.com.
 
 本工作流不保存、不共享您的账户和密码，代码中也仅作为获取本人用户 ID 使用。
 
-### 关于定时时间
+### 关于定时时间、频率
 
-您可以使用 `cron` 表达式更改 Action 的运行时间，默认为 10:00 UTC：
+您可以使用 `cron` 表达式更改 Action 的运行时间或频率，默认为每日 10:00 UTC：
 
 ```yml
 # .github/workflows/main.yml
@@ -37,9 +37,13 @@ A GitHub Actions workflow for backup of fanfou.com.
 # Controls when the workflow will run
 on:
   schedule:
-    - cron: 0 10 * * * # 您可自由更改此处的定时时间
+    - cron: 0 10 * * * # 您可自由更改此处的定时时间、频率
 ```
 
-## 协议 LICENSE
+### 更多
+
+我正在考虑将备份的内容以独立页面的方式展示，关于本项目您有任何问题或建议均可提出 Issue。
+
+## LICENSE
 
 - MIT

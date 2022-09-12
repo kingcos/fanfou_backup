@@ -25,7 +25,7 @@ A GitHub Actions workflow for backup of fanfou.com.
 
 因饭否目前（应该？）已经停止开发者注册，您可以在 GitHub 中找到饭否客户端相关项目的开源实现，并使用其 API Key 和 API Secret。所有 API Key 和 API Secret 请您合理规范使用，请勿滥用。本工作流不保存、不共享任何 API Key 和 API Secret。
 
-本工作流不保存、不共享您的账户和密码，代码中也仅作为获取本人用户 ID 使用。
+本工作流不保存、不共享您的账户和密码，代码中也仅作为 OAuth 登录以及获取本人用户 ID 使用。
 
 ### 关于定时时间、频率
 

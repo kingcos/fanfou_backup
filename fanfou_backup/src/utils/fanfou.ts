@@ -26,6 +26,7 @@ export function requestFanfous(): Promise<Fanfou[]> {
         "https://raw.githubusercontent.com/kingcos/fanfou_backup/main/fanfou.json"
       )
       .then((response) => {
+        console.log(response);
         if (response.data instanceof Array) {
           resolve(response.data);
         } else {

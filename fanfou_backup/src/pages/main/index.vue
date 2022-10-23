@@ -2,12 +2,14 @@
 import { requestFanfous, type Fanfou } from "../../utils/fanfou";
 import { reactive } from "vue";
 
+console.log("--- RUNNING ---");
+
 const rangeArray = (start: number, end: number) => {
-  //   console.log("rangeArray", start, end);
+  console.log("rangeArray", start, end);
   const arr = Array(end - start + 1)
     .fill(0)
     .map((v, i) => i + start);
-  //   console.log("rangeArray", arr);
+  console.log("rangeArray", arr);
   return arr;
 };
 
@@ -28,7 +30,7 @@ requestFanfous().then((result) => {
 
 const pageOperate = (operate: number) => {
   const next = data.currentPage + operate;
-  //   console.log("pageOperate", next);
+  console.log("pageOperate", next);
   if (next <= 0) {
     data.currentPage = data.totalPages;
   } else if (next > data.totalPages) {
@@ -36,7 +38,7 @@ const pageOperate = (operate: number) => {
   } else {
     data.currentPage = next;
   }
-  //   console.log("pageOperate", data.currentPage);
+  console.log("pageOperate", data.currentPage);
 };
 </script>
 

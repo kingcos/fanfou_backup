@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { requestFanfous, type Fanfou } from "../../utils/fanfou";
+import { requestFanfous, type Fanfou } from "../utils/fanfou";
 import { reactive } from "vue";
 
 console.log("--- RUNNING ---");
@@ -45,6 +45,11 @@ const pageOperate = (operate: number) => {
 <template>
   <main v-if="data.fanfous.length">
     <h1>我的饭否备份</h1>
+    <h4>
+      <a href="https://github.com/kingcos/fanfou_backup"
+        >github.com/kingcos/fanfou_backup</a
+      >
+    </h4>
     <div
       class="fanfou"
       v-for="(index, key) in rangeArray(

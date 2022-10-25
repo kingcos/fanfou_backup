@@ -54,8 +54,14 @@ const formattedDate = (dateString: string) => {
   const year = date.getFullYear().toString() + " 年 ";
   const month = (date.getMonth() + 1).toString() + " 月 ";
   const day = date.getDate().toString() + " 日 ";
-  const hour = date.getHours().toString() + ":";
-  const minute = date.getMinutes().toString(); // + ":";
+  let hour = date.getHours().toString() + ":";
+  if (hour.length < 3) {
+    hour = "0" + hour;
+  }
+  let minute = date.getMinutes().toString();
+  if (minute.length < 2) {
+    minute = "0" + minute;
+  }
   // const second = date.getSeconds().toString();
 
   return year + month + day + hour + minute;

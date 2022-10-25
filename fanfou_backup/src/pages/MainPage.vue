@@ -64,7 +64,7 @@ refresh();
         )"
         :key="key"
       >
-        <div v-if="data.fanfous[index].text.length">
+        <div class="content" v-if="data.fanfous[index].text.length">
           <span v-html="data.fanfous[index].text"></span>
         </div>
         <div v-if="data.fanfous[index].photo">
@@ -124,5 +124,9 @@ h1 {
   margin-left: 10px;
   margin-right: 10px;
   text-align: center;
+}
+
+.content {
+  word-break: break-all;
 }
 </style>

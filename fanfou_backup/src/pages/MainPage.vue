@@ -49,6 +49,18 @@ const pageOperate = (operate: number) => {
   console.log("pageOperate", data.currentPage);
 };
 
+const formattedDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const year = date.getFullYear().toString() + " 年 ";
+  const month = (date.getMonth() + 1).toString() + " 月 ";
+  const day = date.getDate().toString() + " 日 ";
+  const hour = date.getHours().toString() + ":";
+  const minute = date.getMinutes().toString(); // + ":";
+  // const second = date.getSeconds().toString();
+
+  return year + month + day + hour + minute;
+};
+
 refresh();
 </script>
 
@@ -73,10 +85,12 @@ refresh();
         <div class="content" v-if="data.fanfous[index].text.length">
           <span v-html="data.fanfous[index].text"></span>
         </div>
-        <div v-if="data.fanfous[index].photo">
+        <div class="photo" v-if="data.fanfous[index].photo">
           <img :src="data.fanfous[index].photo.largeurl" />
         </div>
-        <span class="time">{{ data.fanfous[index].created_at }}</span>
+        <span class="time">{{
+          formattedDate(data.fanfous[index].created_at)
+        }}</span>
       </div>
       <div class="pager">
         <div @click="pageOperate(-1)" class="last_page">上一页</div>
@@ -112,8 +126,12 @@ h1 {
   }
 }
 
+.photo {
+  width: 50%;
+}
+
 .time {
-  font-size: small;
+  font-size: x-small;
 }
 
 .pager {

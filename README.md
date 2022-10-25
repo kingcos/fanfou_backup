@@ -4,7 +4,7 @@
 
 A GitHub Actions workflow for backup of fanfou.com.
 
-基于 GitHub Actions 工作流定时备份个人发布的饭否内容（原始 JSON 及图片）。
+基于 GitHub Actions 工作流定时备份个人发布的饭否内容（原始 JSON 及图片），并基于 Vue 3 开发了独立页面以展示：[kingcos.me/fanfou_backup](https://kingcos.me/fanfou_backup/)。
 
 ## 设置
 
@@ -42,7 +42,7 @@ on:
 
 ### 更多
 
-我正在考虑将备份的内容以独立页面的方式展示，关于本项目您有任何问题或建议均可提出 Issue。
+关于本项目您有任何问题或建议均可提出 Issue。
 
 ## LICENSE
 

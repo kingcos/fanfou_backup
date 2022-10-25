@@ -19,15 +19,21 @@ const data = reactive<{
   fanfous: Fanfou[];
   currentPage: number;
   totalPages: number;
-}>({ fanfous: [], currentPage: 1, totalPages: 0 });
+  loading: boolean;
+}>({ fanfous: [], currentPage: 1, totalPages: 0, loading: true });
 
 // // 1: 0,1,2,3,4,5,6,7,8,9 => 10 个内容，0-9
 
 const refresh = () => {
-  requestFanfous().then((result) => {
-    data.fanfous = result.reverse();
-    data.totalPages = Math.ceil(result.length / PER_PAGE);
-  });
+  requestFanfous()
+    .then((result) => {
+      data.loading = false;
+      data.fanfous = result.reverse();
+      data.totalPages = Math.ceil(result.length / PER_PAGE);
+    })
+    .catch(() => {
+      data.loading = false;
+    });
 };
 
 const pageOperate = (operate: number) => {
@@ -78,6 +84,7 @@ refresh();
         <div @click="pageOperate(1)" class="next_page">下一页</div>
       </div>
     </div>
+    <div class="fanfou" v-else-if="data.loading">正在加载，请稍等...</div>
     <div v-else>
       <div class="fanfou" @click="refresh">
         网络似乎出现问题，无法加载内容，请点此刷新重试

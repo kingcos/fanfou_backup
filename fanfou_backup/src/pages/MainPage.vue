@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { requestFanfous, type Fanfou } from "../utils/fanfou";
-import { reactive } from "vue";
+import { reactive, ref, watch } from "vue";
 
 console.log("--- RUNNING ---");
 
@@ -16,19 +16,39 @@ const rangeArray = (start: number, end: number) => {
 const PER_PAGE: number = 15;
 
 const data = reactive<{
+  orginFanfous: Fanfou[];
   fanfous: Fanfou[];
   currentPage: number;
   totalPages: number;
   loading: boolean;
-}>({ fanfous: [], currentPage: 1, totalPages: 0, loading: true });
+}>({
+  orginFanfous: [],
+  fanfous: [],
+  currentPage: 1,
+  totalPages: 0,
+  loading: true,
+});
 
 // // 1: 0,1,2,3,4,5,6,7,8,9 => 10 个内容，0-9
+
+const keyword = ref("");
+watch(keyword, (newValue) => {
+  if (newValue == "") {
+    data.fanfous = data.orginFanfous;
+  } else {
+    data.fanfous = data.fanfous.filter((fanfou) => {
+      return fanfou.text.indexOf(newValue) != -1;
+    });
+  }
+  console.log(newValue);
+});
 
 const refresh = () => {
   requestFanfous()
     .then((result) => {
       data.loading = false;
-      data.fanfous = result.reverse();
+      data.orginFanfous = result.reverse();
+      data.fanfous = data.orginFanfous;
       data.totalPages = Math.ceil(result.length / PER_PAGE);
     })
     .catch(() => {
@@ -79,6 +99,13 @@ refresh();
         >github.com/kingcos/fanfou_backup</a
       >
     </h4>
+    <input
+      type="text"
+      class="search"
+      placeholder="🔍 Search"
+      filterable
+      v-model="keyword"
+    />
     <div v-if="data.fanfous.length">
       <div
         class="fanfou"
@@ -159,5 +186,14 @@ h1 {
 
 .content {
   word-break: break-all;
+}
+
+.search {
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 5px;
+
+  font-size: medium;
+  margin-top: 10px;
 }
 </style>

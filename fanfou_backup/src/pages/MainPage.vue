@@ -43,17 +43,16 @@ const data = reactive<{
 
 const keyword = ref("");
 watch(keyword, (newValue) => {
-  data.isEmptyResult = false
-
   if (newValue == "") {
     data.fanfous = data.orginFanfous;
   } else {
     data.fanfous = data.orginFanfous.filter((fanfou) => {
       return fanfou.text.indexOf(newValue) != -1;
     });
-
-    data.isEmptyResult = data.fanfous.length === 0
   }
+  data.isEmptyResult = data.fanfous.length === 0;
+  data.totalPages = Math.ceil(data.fanfous.length / PER_PAGE);
+
   console.log(newValue);
 });
 
@@ -63,8 +62,11 @@ const refresh = () => {
     .then((result) => {
       data.loading = false;
       data.orginFanfous = result.reverse();
-      data.fanfous = data.orginFanfous;
-      data.totalPages = Math.ceil(result.length / PER_PAGE);
+
+      data.fanfous = data.orginFanfous.filter((fanfou) => {
+        return fanfou.text.indexOf(keyword.value) != -1;
+      });
+      data.totalPages = Math.ceil(data.fanfous.length / PER_PAGE);
     })
     .catch(() => {
       data.loading = false;
@@ -73,7 +75,7 @@ const refresh = () => {
 
 const pageOperate = (operate: number) => {
   const next = currentPage.value + operate;
-  console.log("pageOperate", next);
+  console.log("pageOperate", next, data.totalPages);
   let page = next
   if (next <= 0) {
     page = data.totalPages;
@@ -81,9 +83,11 @@ const pageOperate = (operate: number) => {
     page = 1;
   }
   console.log("pageOperate", page);
-  router.push({ query: { page: page } }).then(() => {
-    refresh();
-  });
+  if (page !== currentPage.value) {
+    router.push({ query: { page: page } }).then(() => {
+      refresh();
+    });
+  }
 };
 
 const formattedDate = (dateString: string) => {

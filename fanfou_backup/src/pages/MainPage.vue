@@ -43,17 +43,19 @@ const data = reactive<{
 
 const keyword = ref("");
 watch(keyword, (newValue) => {
-  if (newValue == "") {
-    data.fanfous = data.orginFanfous;
-  } else {
-    data.fanfous = data.orginFanfous.filter((fanfou) => {
-      return fanfou.text.indexOf(newValue) != -1;
-    });
-  }
-  data.isEmptyResult = data.fanfous.length === 0;
-  data.totalPages = Math.ceil(data.fanfous.length / PER_PAGE);
+  router.push({ query: { page: 1 } }).then(() => {
+    if (newValue == "") {
+      data.fanfous = data.orginFanfous;
+    } else {
+      data.fanfous = data.orginFanfous.filter((fanfou) => {
+        return fanfou.text.indexOf(newValue) != -1;
+      });
+    }
+    data.isEmptyResult = data.fanfous.length === 0;
+    data.totalPages = Math.ceil(data.fanfous.length / PER_PAGE);
+  });
 
-  console.log(newValue);
+  console.log(currentPage.value, newValue);
 });
 
 const refresh = () => {

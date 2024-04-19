@@ -30,23 +30,29 @@ const data = reactive<{
   totalPages: number;
   loading: boolean;
   image?: string;
+  isEmptyResult: boolean;
 }>({
   orginFanfous: [],
   fanfous: [],
   totalPages: 0,
   loading: false,
+  isEmptyResult: false,
 });
 
 // // 1: 0,1,2,3,4,5,6,7,8,9 => 10 个内容，0-9
 
 const keyword = ref("");
 watch(keyword, (newValue) => {
+  data.isEmptyResult = false
+
   if (newValue == "") {
     data.fanfous = data.orginFanfous;
   } else {
-    data.fanfous = data.fanfous.filter((fanfou) => {
+    data.fanfous = data.orginFanfous.filter((fanfou) => {
       return fanfou.text.indexOf(newValue) != -1;
     });
+
+    data.isEmptyResult = data.fanfous.length === 0
   }
   console.log(newValue);
 });
@@ -154,6 +160,11 @@ refresh();
       </div>
     </div>
     <div class="fanfou" v-else-if="data.loading">正在加载，请稍等...</div>
+    <div v-else-if="data.isEmptyResult">
+      <div class="fanfou">
+        暂无相关内容，请重新输入搜索关键词
+      </div>
+    </div>
     <div v-else>
       <div class="fanfou" @click="refresh">
         网络似乎出现问题，无法加载内容，请点此刷新重试

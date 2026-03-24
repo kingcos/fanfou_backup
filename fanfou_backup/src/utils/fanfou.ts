@@ -4,13 +4,13 @@ export interface Fanfou {
   created_at: string;
   text: string;
   location: string;
-  photo: {
+  photo?: {
     largeurl: string;
   };
-  repost_status: {
+  repost_status?: {
     created_at: string;
     text: string;
-    photo: {
+    photo?: {
       largeurl: string;
     };
     user: {
@@ -20,22 +20,14 @@ export interface Fanfou {
 }
 
 export function requestFanfous(): Promise<Fanfou[]> {
-  return new Promise<Fanfou[]>((resolve, reject) => {
-    request
-      .get<Fanfou[]>(
-        "https://raw.githubusercontent.com/kingcos/fanfou_backup/main/fanfou.json"
-      )
-      .then((response) => {
-        console.log(response);
-        if (response.data instanceof Array) {
-          resolve(response.data);
-        } else {
-          reject();
-        }
-      })
-      .catch((err) => {
-        console.log(err);
-        reject(err);
-      });
-  });
+  return request
+    .get<Fanfou[]>(
+      "https://raw.githubusercontent.com/kingcos/fanfou_backup/main/fanfou.json"
+    )
+    .then((response) => {
+      if (response.data instanceof Array) {
+        return response.data;
+      }
+      return Promise.reject(new Error("Invalid data format"));
+    });
 }

@@ -2,6 +2,17 @@
 import { useRoute, useRouter } from "vue-router";
 import { reactive, ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { requestFanfous, type Fanfou } from "../utils/fanfou";
+import {
+  escapeRegExp,
+  extractTags,
+  processText,
+  hasTag,
+  hasPeriod,
+  formattedDate,
+  getHeatLevel,
+  getCommentText,
+  isOnThisDay,
+} from "../utils/textUtils";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,8 +25,6 @@ const debounce = <T extends (...args: any[]) => unknown>(fn: T, ms: number) => {
     timer = setTimeout(() => fn(...args), ms);
   };
 };
-
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 const isDark = ref(false);
@@ -38,7 +47,15 @@ const initTheme = () => {
 };
 
 // ── Data ───────────────────────────────────────────────────────────────────
-const PER_PAGE = 15;
+const PER_PAGE_OPTIONS = [10, 15, 20, 30, 50] as const;
+type PerPageOption = (typeof PER_PAGE_OPTIONS)[number];
+
+const savedPerPage = localStorage.getItem("perPage");
+const perPage = ref<PerPageOption>(
+  PER_PAGE_OPTIONS.includes(Number(savedPerPage) as PerPageOption)
+    ? (Number(savedPerPage) as PerPageOption)
+    : 15
+);
 
 const data = reactive<{
   orginFanfous: Fanfou[];
@@ -58,7 +75,9 @@ const data = reactive<{
 const currentPage = computed(() => (route.query.page ? Number(route.query.page) : 1));
 
 const rangeArray = (start: number, end: number) =>
-  Array(end - start + 1).fill(0).map((_, i) => i + start);
+  Array(end - start + 1)
+    .fill(0)
+    .map((_, i) => i + start);
 
 // ── Image lightbox ─────────────────────────────────────────────────────────
 const currentImageIndex = ref(-1);
@@ -66,8 +85,8 @@ const currentImageIndex = ref(-1);
 const pageImages = computed(() => {
   if (!data.fanfous.length) return [];
   const range = rangeArray(
-    (currentPage.value - 1) * PER_PAGE,
-    Math.min(currentPage.value * PER_PAGE - 1, data.fanfous.length - 1)
+    (currentPage.value - 1) * perPage.value,
+    Math.min(currentPage.value * perPage.value - 1, data.fanfous.length - 1)
   );
   return range.flatMap((i) => {
     const urls: string[] = [];
@@ -107,34 +126,16 @@ const nextImage = (e: Event) => {
 };
 
 // ── Hashtags ───────────────────────────────────────────────────────────────
-const TAG_LINK_RE = /href="[^"]*\/q\/([^"/?&\s]+)"/g;
-const TEXT_TAG_RE = /#([^#\s，。！？,.!?<>]+)/g;
-
-const extractTags = (text: string): Set<string> => {
-  const tags = new Set<string>();
-  for (const m of text.matchAll(TAG_LINK_RE)) tags.add(decodeURIComponent(m[1]));
-  const plain = text.replace(/<[^>]*>/g, " ");
-  for (const m of plain.matchAll(TEXT_TAG_RE)) tags.add(m[1]);
-  return tags;
-};
-
 const hashtags = computed(() => {
   const map = new Map<string, number>();
   for (const f of data.orginFanfous)
-    for (const tag of extractTags(f.text))
-      map.set(tag, (map.get(tag) ?? 0) + 1);
+    for (const tag of extractTags(f.text)) map.set(tag, (map.get(tag) ?? 0) + 1);
   return Array.from(map.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([tag, count]) => ({ tag, count }));
 });
 
 const activeTag = ref(route.query.tag ? String(route.query.tag) : "");
-
-const processText = (text: string): string =>
-  text.replace(/(<[^>]*>)|#([^#\s，。！？,.!?<>]+)/g, (match, htmlTag, tagName) => {
-    if (htmlTag) return htmlTag;
-    return `<span class="hashtag" data-tag="${tagName}">#${tagName}</span>`;
-  });
 
 const handleContentClick = (e: MouseEvent) => {
   const target = e.target as HTMLElement;
@@ -156,13 +157,17 @@ const selectTag = (tag: string) => {
   activeTag.value = activeTag.value === tag ? "" : tag;
 };
 
-const clearTag = () => { activeTag.value = ""; };
+const clearTag = () => {
+  activeTag.value = "";
+};
 
-const hasTag = (text: string, tag: string): boolean => {
-  const encoded = encodeURIComponent(tag);
-  if (text.includes(`/q/${encoded}`) || text.includes(`/q/${tag}`)) return true;
-  const plain = text.replace(/<[^>]*>/g, " ");
-  return new RegExp(`#${escapeRegExp(tag)}(?:#|(?=[\\s，。！？,.!?]|$))`).test(plain);
+// ── Repost filter ──────────────────────────────────────────────────────────
+const activeRepost = ref(route.query.repost === "1");
+
+const repostCount = computed(() => data.orginFanfous.filter((f) => !!f.repost_status).length);
+
+const toggleRepost = () => {
+  activeRepost.value = !activeRepost.value;
 };
 
 // ── Heatmap ────────────────────────────────────────────────────────────────
@@ -188,14 +193,6 @@ const heatmapData = computed(() => {
 const periodKey = (year: number, month: number) =>
   `${year}-${String(month).padStart(2, "0")}`;
 
-const getHeatLevel = (count: number): number => {
-  if (count === 0) return 0;
-  if (count <= 2) return 1;
-  if (count <= 8) return 2;
-  if (count <= 20) return 3;
-  return 4;
-};
-
 const togglePeriod = (period: string) => {
   activePeriod.value = activePeriod.value === period ? "" : period;
 };
@@ -205,12 +202,21 @@ const formatPeriod = (p: string) => {
   return `${y} 年 ${m} 月`;
 };
 
-const clearPeriod = () => { activePeriod.value = ""; };
-
-const hasPeriod = (createdAt: string, period: string): boolean => {
-  const d = new Date(createdAt);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === period;
+const clearPeriod = () => {
+  activePeriod.value = "";
 };
+
+// ── 那年今日 ───────────────────────────────────────────────────────────────
+const showOnThisDay = ref(false);
+const today = new Date();
+const todayMonth = today.getMonth() + 1;
+const todayDay = today.getDate();
+
+const onThisDayFanfous = computed(() =>
+  data.orginFanfous.filter((f) => isOnThisDay(f.created_at, todayMonth, todayDay))
+);
+
+const onThisDayYear = (createdAt: string) => new Date(createdAt).getFullYear();
 
 // ── Search & filter ────────────────────────────────────────────────────────
 const keyword = ref(route.query.keyword ? String(route.query.keyword) : "");
@@ -221,38 +227,53 @@ const buildQuery = (page: number) => ({
   keyword: keyword.value || undefined,
   tag: activeTag.value || undefined,
   period: activePeriod.value || undefined,
+  repost: activeRepost.value ? "1" : undefined,
 });
 
-const applyFilters = (kw: string, tag: string, period: string) => {
+const applyFilters = (kw: string, tag: string, period: string, repost: boolean) => {
   let result = data.orginFanfous;
   if (period) result = result.filter((f) => hasPeriod(f.created_at, period));
   if (tag) result = result.filter((f) => hasTag(f.text, tag));
+  if (repost) result = result.filter((f) => !!f.repost_status);
   if (kw) result = result.filter((f) => f.text.includes(kw));
   data.fanfous = result;
-  data.isEmptyResult = result.length === 0 && (kw !== "" || tag !== "" || period !== "");
-  data.totalPages = Math.ceil(result.length / PER_PAGE);
+  data.isEmptyResult =
+    result.length === 0 && (kw !== "" || tag !== "" || period !== "" || repost);
+  data.totalPages = Math.ceil(result.length / perPage.value);
 };
 
 const clearAll = () => {
   keyword.value = "";
   activeTag.value = "";
   activePeriod.value = "";
+  activeRepost.value = false;
 };
 
 const debouncedKeywordFilter = debounce((val: string) => {
-  applyFilters(val, activeTag.value, activePeriod.value);
+  applyFilters(val, activeTag.value, activePeriod.value, activeRepost.value);
   router.push({ query: buildQuery(1) });
 }, 300);
 
 watch(keyword, (val) => debouncedKeywordFilter(val));
 
 watch(activeTag, () => {
-  applyFilters(keyword.value, activeTag.value, activePeriod.value);
+  applyFilters(keyword.value, activeTag.value, activePeriod.value, activeRepost.value);
   router.push({ query: buildQuery(1) });
 });
 
 watch(activePeriod, () => {
-  applyFilters(keyword.value, activeTag.value, activePeriod.value);
+  applyFilters(keyword.value, activeTag.value, activePeriod.value, activeRepost.value);
+  router.push({ query: buildQuery(1) });
+});
+
+watch(activeRepost, () => {
+  applyFilters(keyword.value, activeTag.value, activePeriod.value, activeRepost.value);
+  router.push({ query: buildQuery(1) });
+});
+
+watch(perPage, (val) => {
+  localStorage.setItem("perPage", String(val));
+  applyFilters(keyword.value, activeTag.value, activePeriod.value, activeRepost.value);
   router.push({ query: buildQuery(1) });
 });
 
@@ -262,9 +283,11 @@ const refresh = () => {
     .then((result) => {
       data.loading = false;
       data.orginFanfous = result.reverse();
-      applyFilters(keyword.value, activeTag.value, activePeriod.value);
+      applyFilters(keyword.value, activeTag.value, activePeriod.value, activeRepost.value);
     })
-    .catch(() => { data.loading = false; });
+    .catch(() => {
+      data.loading = false;
+    });
 };
 
 // ── Pagination ─────────────────────────────────────────────────────────────
@@ -298,25 +321,22 @@ const copyCurrentURL = () => {
   navigator.clipboard.writeText(window.location.href);
   toastVisible.value = true;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
+  toastTimer = setTimeout(() => {
+    toastVisible.value = false;
+  }, 2000);
 };
 
-// ── Utils ──────────────────────────────────────────────────────────────────
-const formattedDate = (dateString: string) => {
-  const d = new Date(dateString);
-  return (
-    d.getFullYear() + " 年 " +
-    (d.getMonth() + 1).toString().padStart(2, "0") + " 月 " +
-    d.getDate().toString().padStart(2, "0") + " 日 " +
-    d.getHours().toString().padStart(2, "0") + ":" +
-    d.getMinutes().toString().padStart(2, "0")
-  );
-};
-
+// ── Keyboard ──────────────────────────────────────────────────────────────
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === "Escape") {
-    if (data.image) { clickImage(); return; }
-    if (showHeatmap.value) { showHeatmap.value = false; return; }
+    if (data.image) {
+      clickImage();
+      return;
+    }
+    if (showHeatmap.value) {
+      showHeatmap.value = false;
+      return;
+    }
   }
   if (data.image) {
     if (e.key === "ArrowLeft") prevImage(e);
@@ -324,19 +344,13 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 };
 
-const handleOutsideClick = () => {
-  // 话题搜索框点外部不关闭，让用户可以正常交互
-};
-
 onMounted(() => {
   initTheme();
   window.addEventListener("keydown", handleKeydown);
-  document.addEventListener("click", handleOutsideClick);
 });
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
-  document.removeEventListener("click", handleOutsideClick);
 });
 
 refresh();
@@ -350,13 +364,13 @@ refresh();
       v-if="pageImages.length > 1"
       class="image_nav image_prev"
       @click.stop="prevImage($event)"
-    >‹</button>
+    >◀</button>
     <img class="image" :src="data.image" />
     <button
       v-if="pageImages.length > 1"
       class="image_nav image_next"
       @click.stop="nextImage($event)"
-    >›</button>
+    >▶</button>
     <div v-if="pageImages.length > 1" class="image_counter">
       {{ currentImageIndex + 1 }} / {{ pageImages.length }}
     </div>
@@ -376,6 +390,7 @@ refresh();
         </h4>
       </div>
       <div class="header_actions">
+        <button class="icon_btn" @click="showOnThisDay = !showOnThisDay" title="那年今日">🗓️</button>
         <button class="icon_btn" @click="copyCurrentURL" title="复制当前链接">🔗</button>
         <button
           class="icon_btn"
@@ -383,6 +398,49 @@ refresh();
           :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
         >{{ isDark ? "☀️" : "🌙" }}</button>
       </div>
+    </div>
+
+    <!-- 那年今日 -->
+    <div class="on_this_day" v-if="showOnThisDay">
+      <div class="otd_header">
+        <span class="otd_title">那年今日（{{ todayMonth }} 月 {{ todayDay }} 日）</span>
+        <button class="otd_close" @click="showOnThisDay = false">✕</button>
+      </div>
+      <div v-if="onThisDayFanfous.length" class="otd_list">
+        <div
+          class="fanfou otd_item"
+          v-for="(f, i) in onThisDayFanfous"
+          :key="i"
+        >
+          <div class="otd_year">{{ onThisDayYear(f.created_at) }} 年</div>
+          <div
+            class="content"
+            v-if="getCommentText(f.text, !!f.repost_status).length || !f.repost_status"
+            @click="handleContentClick"
+            v-html="processText(getCommentText(f.text, !!f.repost_status) || f.text)"
+          ></div>
+          <div class="photo" v-if="f.photo">
+            <img :src="f.photo?.largeurl" loading="lazy" @click="clickImage(f.photo?.largeurl)" />
+          </div>
+          <div class="repost" v-if="f.repost_status">
+            <span class="repost_user">@{{ f.repost_status.user.name }}：</span>
+            <span
+              class="repost_content"
+              @click="handleContentClick"
+              v-html="processText(f.repost_status.text)"
+            ></span>
+            <div class="photo" v-if="f.repost_status!.photo">
+              <img
+                :src="f.repost_status!.photo?.largeurl"
+                loading="lazy"
+                @click="clickImage(f.repost_status!.photo?.largeurl)"
+              />
+            </div>
+          </div>
+          <span class="time">{{ formattedDate(f.created_at) }}</span>
+        </div>
+      </div>
+      <div v-else class="otd_empty">这一天还没有饭否记录</div>
     </div>
 
     <!-- Search -->
@@ -396,9 +454,17 @@ refresh();
       <button v-if="keyword" class="search_clear" @click="keyword = ''">✕</button>
     </div>
 
-    <!-- Topics + Heatmap toggle row -->
-    <div class="filter_row" v-if="hashtags.length || heatmapData.years.length">
-      <div class="tags_scroll" v-if="hashtags.length">
+    <!-- Topics + Repost + Heatmap toggle row -->
+    <div class="filter_row" v-if="hashtags.length || heatmapData.years.length || repostCount > 0">
+      <div class="tags_scroll" v-if="hashtags.length || repostCount > 0">
+        <!-- Repost filter pill -->
+        <button
+          v-if="repostCount > 0"
+          class="tag_pill"
+          :class="{ active: activeRepost }"
+          @click="toggleRepost"
+        >🔁 转发<em>{{ repostCount }}</em><span v-if="activeRepost" class="tag_x">×</span></button>
+        <!-- Hashtag pills -->
         <button
           v-for="item in hashtags"
           :key="item.tag"
@@ -457,16 +523,26 @@ refresh();
     <!-- Results -->
     <div v-if="data.fanfous.length">
       <div class="result_info">
-        共 {{ data.fanfous.length }} 条
-        <template v-if="activePeriod">（{{ formatPeriod(activePeriod) }}）</template>
-        <template v-if="activeTag">（话题：#{{ activeTag }}#）</template>
-        <template v-if="keyword">（搜索：{{ keyword }}）</template>
+        <span>
+          共 {{ data.fanfous.length }} 条
+          <template v-if="activePeriod">（{{ formatPeriod(activePeriod) }}）</template>
+          <template v-if="activeTag">（话题：#{{ activeTag }}#）</template>
+          <template v-if="activeRepost">（转发）</template>
+          <template v-if="keyword">（搜索：{{ keyword }}）</template>
+        </span>
+        <span class="per_page_wrap">
+          每页
+          <select class="per_page_select" v-model="perPage">
+            <option v-for="n in PER_PAGE_OPTIONS" :key="n" :value="n">{{ n }}</option>
+          </select>
+          条
+        </span>
       </div>
       <div
         class="fanfou"
         v-for="(index, key) in rangeArray(
-          (currentPage - 1) * PER_PAGE,
-          Math.min(currentPage * PER_PAGE - 1, data.fanfous.length - 1)
+          (currentPage - 1) * perPage,
+          Math.min(currentPage * perPage - 1, data.fanfous.length - 1)
         )"
         :key="key"
       >
@@ -476,16 +552,16 @@ refresh();
           <span v-if="data.fanfous[index].repost_status" class="badge">🔁</span>
         </div>
 
-        <!-- Main content -->
+        <!-- Main content: show only user's own comment for reposts -->
         <div
           class="content"
-          v-if="data.fanfous[index].text.length"
+          v-if="getCommentText(data.fanfous[index].text, !!data.fanfous[index].repost_status).length"
           @click="handleContentClick"
-          v-html="processText(data.fanfous[index].text)"
+          v-html="processText(getCommentText(data.fanfous[index].text, !!data.fanfous[index].repost_status))"
         ></div>
 
-        <!-- Main photo -->
-        <div class="photo" v-if="data.fanfous[index].photo">
+        <!-- Main photo (non-repost) -->
+        <div class="photo" v-if="data.fanfous[index].photo && !data.fanfous[index].repost_status">
           <img
             :src="data.fanfous[index].photo?.largeurl"
             loading="lazy"
@@ -586,6 +662,68 @@ h1 { margin-top: 0; }
     background-color: var(--color-background-mute);
     border-color: var(--color-border-hover);
   }
+}
+
+// ── 那年今日 ──────────────────────────────────────────────────────────────────
+.on_this_day {
+  margin-top: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.otd_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--color-background-mute);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.otd_title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.otd_close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.45;
+  padding: 0 2px;
+  color: var(--color-text);
+  &:hover { opacity: 0.9; }
+}
+
+.otd_list {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.otd_item {
+  margin-top: 0 !important;
+}
+
+.otd_year {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--vt-c-indigo);
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+
+.otd_empty {
+  padding: 20px;
+  text-align: center;
+  font-size: small;
+  opacity: 0.45;
 }
 
 // ── Search ──────────────────────────────────────────────────────────────────
@@ -693,6 +831,28 @@ h1 { margin-top: 0; }
   margin-top: 16px;
   font-size: small;
   opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.per_page_wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.per_page_select {
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1px 4px;
+  font-size: small;
+  cursor: pointer;
+  &:focus { outline: none; border-color: var(--color-border-hover); }
 }
 
 // ── Post card ───────────────────────────────────────────────────────────────
@@ -921,6 +1081,7 @@ h1 { margin-top: 0; }
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
   &:hover { background: rgba(255, 255, 255, 0.35); }
 }
 
@@ -928,22 +1089,24 @@ h1 { margin-top: 0; }
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25);
   border: none;
   color: white;
-  font-size: 36px;
-  width: 48px;
-  height: 64px;
-  border-radius: 6px;
+  font-size: 22px;
+  width: 44px;
+  height: 72px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  &:hover { background: rgba(255, 255, 255, 0.3); }
+  z-index: 2;
+  line-height: 1;
+  &:hover { background: rgba(255, 255, 255, 0.4); }
 }
 
-.image_prev { left: 16px; }
-.image_next { right: 16px; }
+.image_prev { left: 12px; }
+.image_next { right: 12px; }
 
 .image_counter {
   position: absolute;
@@ -952,13 +1115,16 @@ h1 { margin-top: 0; }
   transform: translateX(-50%);
   color: rgba(255, 255, 255, 0.7);
   font-size: small;
+  z-index: 2;
 }
 
 .image {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 80%;
+  max-height: 85%;
   object-fit: contain;
   border-radius: 4px;
+  position: relative;
+  z-index: 1;
 }
 
 // ── Heatmap ──────────────────────────────────────────────────────────────────

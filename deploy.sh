@@ -5,8 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$SCRIPT_DIR/fanfou_backup"
 DIST_DIR="$APP_DIR/dist"
 
-echo "→ Building..."
+echo "→ Running tests..."
 cd "$APP_DIR"
+npm test
+
+echo "→ Building..."
 npm run build
 
 echo "→ Copying dist to repo root..."

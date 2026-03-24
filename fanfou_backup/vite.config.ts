@@ -5,11 +5,14 @@ import vue from "@vitejs/plugin-vue";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === "development" ? "" : "/fanfou_backup/",
+  base: process.env.NODE_ENV === "development" ? "/" : "/fanfou_backup/",
   plugins: [vue()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
+  },
+  test: {
+    environment: "node",
   },
 });

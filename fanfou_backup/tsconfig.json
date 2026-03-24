@@ -5,7 +5,8 @@
     "baseUrl": "/fanfou_backup/",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
 
   "references": [

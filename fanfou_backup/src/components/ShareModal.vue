@@ -10,6 +10,7 @@ const emit = defineEmits<{ (e: "close"): void }>();
 const cardRef = ref<HTMLElement | null>(null);
 const saving = ref(false);
 const cropPhoto = ref(true);
+const iosImageUrl = ref("");
 
 const commentText = getCommentText(props.fanfou.text, !!props.fanfou.repost_status);
 const mainText = props.fanfou.repost_status ? commentText : props.fanfou.text;
@@ -17,34 +18,80 @@ const repost = props.fanfou.repost_status ?? null;
 const mainPhoto = props.fanfou.repost_status ? null : props.fanfou.photo ?? null;
 const hasPhoto = !!(mainPhoto || repost?.photo);
 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+const renderCanvas = () =>
+  Promise.race([
+    html2canvas(cardRef.value!, { useCORS: true, scale: 2, backgroundColor: null }),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 12000)),
+  ]);
+
 const saveImage = async () => {
   if (!cardRef.value || saving.value) return;
   saving.value = true;
+  iosImageUrl.value = "";
   try {
-    const canvas = await html2canvas(cardRef.value, {
-      useCORS: true,
-      scale: 2,
-      backgroundColor: null,
-    });
-    const link = document.createElement("a");
-    link.download = `fanfou-${Date.now()}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    const canvas = await renderCanvas();
+
+    // iOS: try Web Share API (iOS 15+), fall back to long-press hint
+    if (isIOS) {
+      if (navigator.share) {
+        const blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png")
+        );
+        const file = new File([blob], "fanfou.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      }
+      // Fallback: show image for long-press save
+      iosImageUrl.value = canvas.toDataURL("image/png");
+    } else {
+      const link = document.createElement("a");
+      link.download = `fanfou-${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+  } catch (e) {
+    console.error("Save failed:", e);
   } finally {
     saving.value = false;
   }
 };
 
+// Body scroll lock
+const lockScroll = () => {
+  const y = window.scrollY;
+  document.body.dataset.scrollY = String(y);
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${y}px`;
+  document.body.style.width = "100%";
+};
+const unlockScroll = () => {
+  const y = Number(document.body.dataset.scrollY ?? 0);
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.width = "";
+  window.scrollTo(0, y);
+};
+
 const onKeydown = (e: KeyboardEvent) => {
   if (e.key === "Escape") emit("close");
 };
-onMounted(() => window.addEventListener("keydown", onKeydown));
-onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  lockScroll();
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+  unlockScroll();
+});
 </script>
 
 <template>
-  <div class="sm_overlay" @click.self="emit('close')">
-    <div class="sm_wrapper">
+  <div class="sm_overlay" @click.self="emit('close')" @touchmove.prevent>
+    <div class="sm_wrapper" @touchmove.stop>
       <!-- Preview card -->
       <div class="sm_card" ref="cardRef">
         <div class="sm_card_inner">
@@ -70,6 +117,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span class="sm_brand">饭否</span>
           </div>
         </div>
+      </div>
+
+      <!-- iOS long-press hint -->
+      <div v-if="iosImageUrl" class="sm_ios_hint">
+        <p class="sm_ios_hint_text">长按图片保存到相册</p>
+        <img class="sm_ios_img" :src="iosImageUrl" />
       </div>
 
       <!-- Actions -->
@@ -217,6 +270,26 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   color: var(--color-text);
   opacity: 0.3;
   font-weight: 500;
+}
+
+/* ── iOS hint ── */
+.sm_ios_hint {
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.sm_ios_hint_text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sm_ios_img {
+  width: 100%;
+  border-radius: 14px;
+  display: block;
 }
 
 /* ── Actions ── */

@@ -287,6 +287,23 @@ watch(perPage, (val) => {
   router.push({ query: buildQuery(1) });
 });
 
+// ── Scroll lock for OTD modal ──────────────────────────────────────────────
+watch(showOnThisDay, (val) => {
+  if (val) {
+    const y = window.scrollY;
+    document.body.dataset.scrollY = String(y);
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${y}px`;
+    document.body.style.width = "100%";
+  } else {
+    const y = Number(document.body.dataset.scrollY ?? 0);
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    window.scrollTo(0, y);
+  }
+});
+
 const refresh = () => {
   data.loading = true;
   requestFanfous()
@@ -383,15 +400,23 @@ refresh();
   />
 
   <!-- 那年今日 Modal -->
-  <div v-if="showOnThisDay" class="otd_overlay" @click.self="showOnThisDay = false">
+  <div v-if="showOnThisDay" class="otd_overlay" @click.self="showOnThisDay = false" @touchmove.prevent>
     <div class="otd_modal">
       <div class="otd_header">
-        <button class="otd_nav otd_nav--prev" @click="otdOffset--"></button>
+        <button class="otd_nav" @click="otdOffset--">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <span class="otd_title">那年今日（{{ otdLabel }}）</span>
-        <button class="otd_nav otd_nav--next" @click="otdOffset++"></button>
+        <button class="otd_nav" @click="otdOffset++">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M4.5 2L8.5 6L4.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="otd_close" @click="showOnThisDay = false">✕</button>
       </div>
-      <div v-if="onThisDayFanfous.length" class="otd_list">
+      <div v-if="onThisDayFanfous.length" class="otd_list" @touchmove.stop>
         <div class="fanfou otd_item" v-for="(f, i) in onThisDayFanfous" :key="i">
           <div class="otd_year_badge">{{ onThisDayYear(f.created_at) }} 年</div>
           <div
@@ -431,19 +456,27 @@ refresh();
   </div>
 
   <!-- Lightbox -->
-  <div v-if="data.image" class="image_container" @click="clickImage()">
+  <div v-if="data.image" class="image_container" @click="clickImage()" @touchmove.prevent>
     <button class="image_close" @click.stop="clickImage()">✕</button>
     <button
       v-if="pageImages.length > 1 && currentImageIndex >= 0"
       class="image_nav image_prev"
       @click.stop="prevImage($event)"
-    >◀</button>
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M10 3L5 8L10 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <img class="image" :src="data.image" />
     <button
       v-if="pageImages.length > 1 && currentImageIndex >= 0"
       class="image_nav image_next"
       @click.stop="nextImage($event)"
-    >▶</button>
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M6 3L11 8L6 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <div v-if="pageImages.length > 1 && currentImageIndex >= 0" class="image_counter">
       {{ currentImageIndex + 1 }} / {{ pageImages.length }}
     </div>
@@ -738,6 +771,7 @@ h1 { margin-top: 0; }
   background: none;
   border: 1px solid var(--color-border);
   border-radius: 6px;
+  color: var(--color-text);
   width: 28px;
   height: 28px;
   padding: 0;
@@ -749,22 +783,6 @@ h1 { margin-top: 0; }
   opacity: 0.6;
   &:hover { background: var(--color-background-mute); opacity: 1; }
 
-  &::after {
-    content: "";
-    display: block;
-    width: 6px;
-    height: 6px;
-    border-right: 1.5px solid var(--color-text);
-    border-bottom: 1.5px solid var(--color-text);
-  }
-
-  &.otd_nav--prev::after {
-    transform: rotate(135deg) translate(1px, -1px);
-  }
-
-  &.otd_nav--next::after {
-    transform: rotate(-45deg) translate(-1px, 1px);
-  }
 }
 
 .otd_title {

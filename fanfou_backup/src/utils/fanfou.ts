@@ -19,11 +19,14 @@ export interface Fanfou {
   };
 }
 
+const DATA_URL = "https://raw.githubusercontent.com/kingcos/fanfou_backup/main/fanfou.json";
+
+// Extract the GitHub repo owner from the URL as the fanfou account name
+export const FANFOU_OWNER = DATA_URL.split("/")[3];
+
 export function requestFanfous(): Promise<Fanfou[]> {
   return request
-    .get<Fanfou[]>(
-      "https://raw.githubusercontent.com/kingcos/fanfou_backup/main/fanfou.json"
-    )
+    .get<Fanfou[]>(DATA_URL)
     .then((response) => {
       if (response.data instanceof Array) {
         return response.data;

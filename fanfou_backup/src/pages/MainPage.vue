@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
 import { reactive, ref, watch, computed, onMounted, onUnmounted } from "vue";
-import { requestFanfous, type Fanfou } from "../utils/fanfou";
+import { requestFanfous, FANFOU_OWNER, type Fanfou } from "../utils/fanfou";
+import ShareModal from "../components/ShareModal.vue";
 import {
   escapeRegExp,
   extractTags,
@@ -208,12 +209,21 @@ const clearPeriod = () => {
 
 // ── 那年今日 ───────────────────────────────────────────────────────────────
 const showOnThisDay = ref(false);
-const today = new Date();
-const todayMonth = today.getMonth() + 1;
-const todayDay = today.getDate();
+const otdOffset = ref(0); // 0 = today, -1 = yesterday, +1 = tomorrow
+
+const otdDate = computed(() => {
+  const d = new Date();
+  d.setDate(d.getDate() + otdOffset.value);
+  return d;
+});
+
+const otdMonth = computed(() => otdDate.value.getMonth() + 1);
+const otdDay = computed(() => otdDate.value.getDate());
+
+const otdLabel = computed(() => `${otdMonth.value} 月 ${otdDay.value} 日`);
 
 const onThisDayFanfous = computed(() =>
-  data.orginFanfous.filter((f) => isOnThisDay(f.created_at, todayMonth, todayDay))
+  data.orginFanfous.filter((f) => isOnThisDay(f.created_at, otdMonth.value, otdDay.value))
 );
 
 const onThisDayYear = (createdAt: string) => new Date(createdAt).getFullYear();
@@ -313,6 +323,9 @@ const doJumpPage = () => {
   jumpPage.value = "";
 };
 
+// ── Share ──────────────────────────────────────────────────────────────────
+const sharingFanfou = ref<Fanfou | null>(null);
+
 // ── Copy link toast ────────────────────────────────────────────────────────
 const toastVisible = ref(false);
 let toastTimer: ReturnType<typeof setTimeout>;
@@ -331,6 +344,10 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === "Escape") {
     if (data.image) {
       clickImage();
+      return;
+    }
+    if (showOnThisDay.value) {
+      showOnThisDay.value = false;
       return;
     }
     if (showHeatmap.value) {
@@ -357,21 +374,77 @@ refresh();
 </script>
 
 <template>
+  <!-- Share Modal -->
+  <ShareModal
+    v-if="sharingFanfou"
+    :fanfou="sharingFanfou"
+    :username="FANFOU_OWNER"
+    @close="sharingFanfou = null"
+  />
+
+  <!-- 那年今日 Modal -->
+  <div v-if="showOnThisDay" class="otd_overlay" @click.self="showOnThisDay = false">
+    <div class="otd_modal">
+      <div class="otd_header">
+        <button class="otd_nav otd_nav--prev" @click="otdOffset--"></button>
+        <span class="otd_title">那年今日（{{ otdLabel }}）</span>
+        <button class="otd_nav otd_nav--next" @click="otdOffset++"></button>
+        <button class="otd_close" @click="showOnThisDay = false">✕</button>
+      </div>
+      <div v-if="onThisDayFanfous.length" class="otd_list">
+        <div class="fanfou otd_item" v-for="(f, i) in onThisDayFanfous" :key="i">
+          <div class="otd_year_badge">{{ onThisDayYear(f.created_at) }} 年</div>
+          <div
+            class="content"
+            v-if="getCommentText(f.text, !!f.repost_status).length || !f.repost_status"
+            @click="handleContentClick"
+            v-html="processText(getCommentText(f.text, !!f.repost_status) || f.text)"
+          ></div>
+          <div class="photo" v-if="f.photo && !f.repost_status">
+            <img :src="f.photo?.largeurl" loading="lazy" @click="clickImage(f.photo?.largeurl)" />
+          </div>
+          <div class="repost" v-if="f.repost_status">
+            <span class="repost_user">@{{ f.repost_status.user.name }}：</span>
+            <span class="repost_content" @click="handleContentClick" v-html="processText(f.repost_status.text)"></span>
+            <div class="photo" v-if="f.repost_status!.photo">
+              <img :src="f.repost_status!.photo?.largeurl" loading="lazy" @click="clickImage(f.repost_status!.photo?.largeurl)" />
+            </div>
+          </div>
+          <div class="post_footer">
+            <div class="post_footer_left">
+              <span class="time">{{ formattedDate(f.created_at) }}</span>
+              <span v-if="f.photo" class="badge">📷</span>
+              <span v-if="f.repost_status" class="badge">🔁</span>
+            </div>
+            <button class="share_btn" @click="sharingFanfou = f" title="分享">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="otd_empty">这一天还没有饭否记录</div>
+    </div>
+  </div>
+
   <!-- Lightbox -->
   <div v-if="data.image" class="image_container" @click="clickImage()">
     <button class="image_close" @click.stop="clickImage()">✕</button>
     <button
-      v-if="pageImages.length > 1"
+      v-if="pageImages.length > 1 && currentImageIndex >= 0"
       class="image_nav image_prev"
       @click.stop="prevImage($event)"
     >◀</button>
     <img class="image" :src="data.image" />
     <button
-      v-if="pageImages.length > 1"
+      v-if="pageImages.length > 1 && currentImageIndex >= 0"
       class="image_nav image_next"
       @click.stop="nextImage($event)"
     >▶</button>
-    <div v-if="pageImages.length > 1" class="image_counter">
+    <div v-if="pageImages.length > 1 && currentImageIndex >= 0" class="image_counter">
       {{ currentImageIndex + 1 }} / {{ pageImages.length }}
     </div>
   </div>
@@ -398,49 +471,6 @@ refresh();
           :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
         >{{ isDark ? "☀️" : "🌙" }}</button>
       </div>
-    </div>
-
-    <!-- 那年今日 -->
-    <div class="on_this_day" v-if="showOnThisDay">
-      <div class="otd_header">
-        <span class="otd_title">那年今日（{{ todayMonth }} 月 {{ todayDay }} 日）</span>
-        <button class="otd_close" @click="showOnThisDay = false">✕</button>
-      </div>
-      <div v-if="onThisDayFanfous.length" class="otd_list">
-        <div
-          class="fanfou otd_item"
-          v-for="(f, i) in onThisDayFanfous"
-          :key="i"
-        >
-          <div class="otd_year">{{ onThisDayYear(f.created_at) }} 年</div>
-          <div
-            class="content"
-            v-if="getCommentText(f.text, !!f.repost_status).length || !f.repost_status"
-            @click="handleContentClick"
-            v-html="processText(getCommentText(f.text, !!f.repost_status) || f.text)"
-          ></div>
-          <div class="photo" v-if="f.photo">
-            <img :src="f.photo?.largeurl" loading="lazy" @click="clickImage(f.photo?.largeurl)" />
-          </div>
-          <div class="repost" v-if="f.repost_status">
-            <span class="repost_user">@{{ f.repost_status.user.name }}：</span>
-            <span
-              class="repost_content"
-              @click="handleContentClick"
-              v-html="processText(f.repost_status.text)"
-            ></span>
-            <div class="photo" v-if="f.repost_status!.photo">
-              <img
-                :src="f.repost_status!.photo?.largeurl"
-                loading="lazy"
-                @click="clickImage(f.repost_status!.photo?.largeurl)"
-              />
-            </div>
-          </div>
-          <span class="time">{{ formattedDate(f.created_at) }}</span>
-        </div>
-      </div>
-      <div v-else class="otd_empty">这一天还没有饭否记录</div>
     </div>
 
     <!-- Search -->
@@ -546,12 +576,6 @@ refresh();
         )"
         :key="key"
       >
-        <!-- Badges -->
-        <div class="badges">
-          <span v-if="data.fanfous[index].photo" class="badge">📷</span>
-          <span v-if="data.fanfous[index].repost_status" class="badge">🔁</span>
-        </div>
-
         <!-- Main content: show only user's own comment for reposts -->
         <div
           class="content"
@@ -586,7 +610,20 @@ refresh();
           </div>
         </div>
 
-        <span class="time">{{ formattedDate(data.fanfous[index].created_at) }}</span>
+        <div class="post_footer">
+          <div class="post_footer_left">
+            <span class="time">{{ formattedDate(data.fanfous[index].created_at) }}</span>
+            <span v-if="data.fanfous[index].photo" class="badge">📷</span>
+            <span v-if="data.fanfous[index].repost_status" class="badge">🔁</span>
+          </div>
+          <button class="share_btn" @click="sharingFanfou = data.fanfous[index]" title="分享">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Pager -->
@@ -664,24 +701,75 @@ h1 { margin-top: 0; }
   }
 }
 
-// ── 那年今日 ──────────────────────────────────────────────────────────────────
-.on_this_day {
-  margin-top: 16px;
+// ── 那年今日 弹窗 ─────────────────────────────────────────────────────────────
+.otd_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.otd_modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: var(--color-background-soft);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .otd_header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background-color: var(--color-background-mute);
+  gap: 6px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.otd_nav {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.6;
+  &:hover { background: var(--color-background-mute); opacity: 1; }
+
+  &::after {
+    content: "";
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--color-text);
+    border-bottom: 1.5px solid var(--color-text);
+  }
+
+  &.otd_nav--prev::after {
+    transform: rotate(135deg) translate(1px, -1px);
+  }
+
+  &.otd_nav--next::after {
+    transform: rotate(-45deg) translate(-1px, 1px);
+  }
 }
 
 .otd_title {
+  flex: 1;
+  text-align: center;
   font-size: 0.9rem;
   font-weight: 600;
   opacity: 0.8;
@@ -692,16 +780,15 @@ h1 { margin-top: 0; }
   border: none;
   cursor: pointer;
   font-size: 14px;
-  opacity: 0.45;
-  padding: 0 2px;
+  opacity: 0.4;
+  padding: 2px 4px;
   color: var(--color-text);
   &:hover { opacity: 0.9; }
 }
 
 .otd_list {
-  max-height: 420px;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -711,16 +798,16 @@ h1 { margin-top: 0; }
   margin-top: 0 !important;
 }
 
-.otd_year {
-  font-size: 0.75rem;
+.otd_year_badge {
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--vt-c-indigo);
+  opacity: 0.75;
   margin-bottom: 4px;
-  opacity: 0.85;
 }
 
 .otd_empty {
-  padding: 20px;
+  padding: 32px 20px;
   text-align: center;
   font-size: small;
   opacity: 0.45;
@@ -887,17 +974,15 @@ h1 { margin-top: 0; }
   }
 }
 
-.badges {
+.post_footer_left {
   display: flex;
-  gap: 4px;
-  margin-bottom: 6px;
-
-  &:empty { display: none; }
+  align-items: center;
+  gap: 5px;
 }
 
 .badge {
-  font-size: 12px;
-  opacity: 0.5;
+  font-size: 11px;
+  opacity: 0.4;
 }
 
 .content {
@@ -920,11 +1005,38 @@ h1 { margin-top: 0; }
   font-weight: 500;
 }
 
-.time {
-  display: block;
+.post_footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 8px;
+}
+
+.time {
   font-size: 0.75rem;
   opacity: 0.45;
+}
+
+.share_btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--color-text);
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+
+  &:hover { opacity: 0.7 !important; }
+}
+
+.fanfou:hover .share_btn {
+  opacity: 0.3;
+}
+
+.otd_item .share_btn {
+  opacity: 0.3;
 }
 
 // ── Pager ───────────────────────────────────────────────────────────────────
@@ -1057,7 +1169,7 @@ h1 { margin-top: 0; }
 // ── Lightbox ─────────────────────────────────────────────────────────────────
 .image_container {
   position: fixed;
-  z-index: 99;
+  z-index: 300;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.9);
   display: flex;
